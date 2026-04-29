@@ -6,6 +6,10 @@ function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
+  const [activeTab, setActiveTab] = useState('analyzer');
+
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
   const analyzeTicket = async () => {
     if (!ticketText.trim()) {
@@ -18,7 +22,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:8000/analyze', {
+      const response = await fetch(`${API_BASE_URL}/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,6 +43,11 @@ function App() {
     }
   };
 
+  const useDemoText = (text) => {
+    setTicketText(text);
+    setError('');
+  };
+
   const getPriorityClass = (priority) => {
     switch (priority?.toLowerCase()) {
       case 'high': return 'priority-high';
@@ -48,136 +57,161 @@ function App() {
     }
   };
 
+  const formatConfidence = (confidence) => {
+    if (typeof confidence !== 'number') return null;
+    return `${Math.round(confidence * 100)}%`;
+  };
+
+  const copyResponse = async () => {
+    if (!result?.response) return;
+    try {
+      await navigator.clipboard.writeText(result.response);
+      setCopyStatus('Copied!');
+      setTimeout(() => setCopyStatus(''), 1500);
+    } catch (_) {
+      setCopyStatus('Copy failed');
+      setTimeout(() => setCopyStatus(''), 1500);
+    }
+  };
+
   return (
     <div className="app">
-      <div className="background-pattern"></div>
-      
-      <header className="navbar">
-        <div className="logo">
-          <span className="logo-icon">🤖</span>
-          <span className="logo-text">TicketAI</span>
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-dot"></span>
+          <span>TicketAI Console</span>
         </div>
-        <div className="nav-links">
-          <span className="nav-item active">Analyzer</span>
-          <span className="nav-item">History</span>
-          <span className="nav-item">Settings</span>
+        <div className="tabs">
+          <button
+            className={`tab ${activeTab === 'analyzer' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analyzer')}
+            type="button"
+          >
+            Analyzer
+          </button>
+          <button className="tab" type="button" disabled>
+            History
+          </button>
+          <button className="tab" type="button" disabled>
+            Settings
+          </button>
         </div>
       </header>
 
-      <main className="main">
-        <div className="hero-section">
-          <h1>Intelligent Support Ticket Analyzer</h1>
-          <p>AI-powered analysis to categorize, prioritize, and generate responses</p>
-        </div>
-
-        <div className="analyzer-card">
-          <div className="input-group">
-            <label>Describe your issue</label>
-            <textarea
-              value={ticketText}
-              onChange={(e) => setTicketText(e.target.value)}
-              placeholder="e.g., I can't login to my account and need help resetting my password..."
-              rows="4"
-              disabled={loading}
-            />
-            <div className="input-footer">
-              <span className="char-count">{ticketText.length} characters</span>
-            </div>
+      <main className="layout">
+        <section className="panel input-panel">
+          <div className="panel-header">
+            <h1>Analyze Support Ticket</h1>
+            <p>Classify intent, detect entities, assign priority, and draft a response.</p>
           </div>
 
-          <button 
-            onClick={analyzeTicket} 
+          <label className="label" htmlFor="ticket-input">Ticket Description</label>
+          <textarea
+            id="ticket-input"
+            value={ticketText}
+            onChange={(e) => setTicketText(e.target.value)}
+            placeholder="Example: I can't login, and password reset email is not arriving."
+            rows="7"
+            disabled={loading}
+          />
+          <div className="input-meta">
+            <span>{ticketText.length} chars</span>
+            <span>{ticketText.trim().split(/\s+/).filter(Boolean).length} words</span>
+          </div>
+
+          <div className="sample-row">
+            <button
+              className="sample-btn"
+              type="button"
+              onClick={() => useDemoText('I was charged twice for one subscription payment.')}
+            >
+              Billing Sample
+            </button>
+            <button
+              className="sample-btn"
+              type="button"
+              onClick={() => useDemoText('The app crashes when I upload an invoice PDF.')}
+            >
+              Technical Sample
+            </button>
+            <button
+              className="sample-btn"
+              type="button"
+              onClick={() => useDemoText('I cannot login and I am not receiving verification code.')}
+            >
+              Account Sample
+            </button>
+          </div>
+
+          <button
+            onClick={analyzeTicket}
             disabled={loading || !ticketText.trim()}
             className={`analyze-btn ${loading ? 'loading' : ''}`}
+            type="button"
           >
-            {loading ? (
-              <>
-                <span className="spinner"></span>
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                </svg>
-                Analyze Ticket
-              </>
-            )}
+            {loading ? 'Analyzing...' : 'Analyze Ticket'}
           </button>
-          
-          {error && <div className="error-toast">{error}</div>}
-        </div>
 
-        {result && (
-          <div className="results-grid">
-            <div className="result-card intent-card">
-              <div className="card-header">
-                <span className="card-icon">🎯</span>
-                <h3>Intent</h3>
-              </div>
-              <div className="card-body">
-                <span className="intent-badge">{result.intent}</span>
-              </div>
+          {error && <div className="error-box">{error}</div>}
+        </section>
+
+        <section className="panel output-panel">
+          <div className="panel-header">
+            <h2>Analysis Result</h2>
+            <p>AI outputs are shown here after submitting a ticket.</p>
+          </div>
+
+          {!result ? (
+            <div className="empty-state">
+              <p>No analysis yet. Submit a ticket to see intent, entities, priority, and response.</p>
             </div>
-
-            <div className={`result-card priority-card ${getPriorityClass(result.priority)}`}>
-              <div className="card-header">
-                <span className="card-icon">⚡</span>
-                <h3>Priority</h3>
+          ) : (
+            <>
+              <div className="stat-grid">
+                <div className="stat-card">
+                  <span className="stat-label">Intent</span>
+                  <span className="stat-value">{result.intent || 'unknown'}</span>
+                </div>
+                <div className={`stat-card ${getPriorityClass(result.priority)}`}>
+                  <span className="stat-label">Priority</span>
+                  <span className="stat-value">{result.priority || 'Low'}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Confidence</span>
+                  <span className="stat-value">{formatConfidence(result.confidence) || 'N/A'}</span>
+                </div>
               </div>
-              <div className="card-body">
-                <span className={`priority-badge ${getPriorityClass(result.priority)}`}>
-                  {result.priority}
-                </span>
-              </div>
-            </div>
+              {result.needs_review && (
+                <div className="error-box">
+                  Low confidence prediction. Manual review is recommended.
+                </div>
+              )}
 
-            <div className="result-card entities-card">
-              <div className="card-header">
-                <span className="card-icon">🏷️</span>
+              <div className="entity-section">
                 <h3>Entities</h3>
-              </div>
-              <div className="card-body">
                 {result.entities && Object.keys(result.entities).length > 0 ? (
                   <div className="entities-list">
                     {Object.entries(result.entities).map(([key, value]) => (
                       <span key={key} className="entity-chip">
-                        <span className="entity-key">{key}</span>
-                        <span className="entity-value">{value}</span>
+                        <strong>{key}:</strong> {Array.isArray(value) ? value.join(', ') : String(value)}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <span className="no-entities">No entities detected</span>
+                  <p className="muted">No entities detected.</p>
                 )}
               </div>
-            </div>
 
-            <div className="result-card response-card">
-              <div className="card-header">
-                <span className="card-icon">💬</span>
-                <h3>AI Response</h3>
-              </div>
-              <div className="card-body">
+              <div className="response-section">
+                <h3>Suggested Response</h3>
                 <p className="response-text">{result.response}</p>
-              </div>
-              <div className="card-footer">
-                <button className="copy-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                  </svg>
-                  Copy
+                <button className="copy-btn" onClick={copyResponse} type="button">
+                  {copyStatus || 'Copy Response'}
                 </button>
-                <button className="edit-btn">Edit</button>
               </div>
-            </div>
-          </div>
-        )}
-
-        <footer className="footer">
-          <p>Powered by Machine Learning • FastAPI • React</p>
-        </footer>
+            </>
+          )}
+        </section>
       </main>
     </div>
   );
