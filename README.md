@@ -11,7 +11,7 @@ This README is written as a full project walkthrough from start to finish.
 <img width="1920" height="1045" alt="image" src="https://github.com/user-attachments/assets/cf52d489-2d2c-4eb7-b9e4-56fd266fa09d" />
 
 ## Demo
-![TicketAI Demo](demo/ticketai-demo.mp4)
+![Demo](demo/ticketai-demo.gif)
 
 
 
